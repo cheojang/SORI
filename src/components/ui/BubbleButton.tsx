@@ -45,7 +45,7 @@ export const BubbleButton = forwardRef<HTMLButtonElement, BubbleButtonProps>(
           ...style,
         }}
         className={`
-          bubble-btn font-bold rounded-full whitespace-nowrap tracking-[-0.01em]
+          bubble-btn font-bold rounded-[12px] whitespace-nowrap tracking-[-0.01em]
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${disabled ? "opacity-50 cursor-not-allowed" : ""}
