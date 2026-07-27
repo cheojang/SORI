@@ -1,75 +1,31 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { issueBillingKey, chargeSubscription } from "@/lib/toss-payments";
-import { PREMIUM_MONTHLY_PRICE } from "@/lib/billing";
+import { activateSubscription } from "@/lib/subscription-activate";
 import Link from "next/link";
 import { BubbleButton } from "@/components/ui/BubbleButton";
 
 interface Props {
-  searchParams: Promise<{ customerKey?: string; authKey?: string }>;
+  // billingKey: 모바일 결제창이 리다이렉트로 넘겨주는 값
+  // done: PC 경로에서 이미 /api/billing/activate로 처리를 끝내고 넘어온 경우
+  searchParams: Promise<{ billingKey?: string; done?: string; code?: string; message?: string }>;
 }
 
 async function SuccessContent({ searchParams }: Props) {
-  const { customerKey, authKey } = await searchParams;
+  const { billingKey, done, code, message } = await searchParams;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   let errorMsg: string | null = null;
 
-  if (customerKey && authKey) {
-    try {
-      // customerKey는 TossPaymentButton에서 `cus_${userId}`로 발급 — 본인 것인지 검증
-      if (customerKey !== `cus_${session.user.id}`) {
-        errorMsg = "카드 등록 정보가 올바르지 않아요";
-      } else {
-        // 1) 카드 등록 인증(authKey) → 정기결제용 빌링키 발급
-        const { billingKey } = await issueBillingKey(customerKey, authKey);
-
-        // 2) 등록 즉시 첫 달 결제 (정기결제는 "카드 등록 = 지금 바로 1회차 결제")
-        const periodEnd = new Date();
-        periodEnd.setMonth(periodEnd.getMonth() + 1);
-        const orderId = `${session.user.id}_billing_${Date.now()}`;
-
-        const payment = await chargeSubscription(
-          billingKey,
-          customerKey,
-          PREMIUM_MONTHLY_PRICE,
-          orderId,
-          "바른발음 프리미엄 정기결제",
-        );
-
-        if (payment.totalAmount !== PREMIUM_MONTHLY_PRICE) {
-          errorMsg = "결제 금액 검증에 실패했어요";
-        } else {
-          await prisma.subscription.upsert({
-            where: { userId: session.user.id },
-            create: {
-              userId: session.user.id,
-              plan: "premium",
-              status: "active",
-              tossCustomerKey: customerKey,
-              tossBillingKey: billingKey,
-              currentPeriodEnd: periodEnd,
-              billingFailCount: 0,
-            },
-            update: {
-              plan: "premium",
-              status: "active",
-              tossCustomerKey: customerKey,
-              tossBillingKey: billingKey,
-              currentPeriodEnd: periodEnd,
-              billingFailCount: 0,
-            },
-          });
-        }
-      }
-    } catch (e) {
-      console.error("[subscribe/success] billing confirm error:", e);
-      errorMsg = "결제 처리 중 오류가 발생했어요. 고객센터에 문의해주세요.";
-    }
-  } else {
+  if (code) {
+    // 결제창이 실패 사유를 붙여 되돌려준 경우
+    errorMsg = message ?? "카드 등록에 실패했어요";
+  } else if (billingKey) {
+    // 모바일 리다이렉트 경로 — 여기서 소유자 검증 + 첫 달 결제 + 구독 활성화
+    const result = await activateSubscription(session.user.id, billingKey);
+    if (!result.ok) errorMsg = result.error;
+  } else if (!done) {
     // 파라미터 없이 직접 접근
     redirect("/subscribe");
   }

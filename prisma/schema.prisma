@@ -127,8 +127,8 @@ model Subscription {
   userId           String    @unique
   user             User      @relation(fields: [userId], references: [id])
   plan             String    @default("free")
-  tossCustomerKey  String?   @unique
-  tossBillingKey   String?
+  // 정기결제용 빌링키(카드 등록 결과). PG 중립 — 포트원을 통해 발급/청구한다.
+  billingKey       String?
   status           String    @default("inactive") // inactive|active|past_due|cancelled
   currentPeriodEnd DateTime?
   billingFailCount Int       @default(0) // 정기결제 연속 실패 횟수 — 3회(3일) 그레이스 후 자동 해지

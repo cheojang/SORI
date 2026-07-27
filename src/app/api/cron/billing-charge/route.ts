@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { chargeSubscription } from "@/lib/toss-payments";
+import { chargeWithBillingKey } from "@/lib/portone";
 import { PREMIUM_MONTHLY_PRICE } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +27,7 @@ export async function GET(req: NextRequest) {
     where: {
       plan: "premium",
       status: { in: ["active", "past_due"] },
-      tossBillingKey: { not: null },
-      tossCustomerKey: { not: null },
+      billingKey: { not: null },
       currentPeriodEnd: { lte: new Date() },
     },
   });
@@ -39,16 +38,16 @@ export async function GET(req: NextRequest) {
 
   for (const sub of due) {
     // 같은 결제 주기를 여러 번 청구하지 않도록 날짜 기반 멱등키 사용
-    const orderId = `${sub.userId}_billing_${sub.currentPeriodEnd!.toISOString().slice(0, 10)}`;
+    const paymentId = `${sub.userId}_billing_${sub.currentPeriodEnd!.toISOString().slice(0, 10)}`;
 
     try {
-      const payment = await chargeSubscription(
-        sub.tossBillingKey!,
-        sub.tossCustomerKey!,
-        PREMIUM_MONTHLY_PRICE,
-        orderId,
-        "바른발음 프리미엄 정기결제",
-      );
+      const payment = await chargeWithBillingKey({
+        billingKey: sub.billingKey!,
+        paymentId,
+        amount: PREMIUM_MONTHLY_PRICE,
+        orderName: "바른발음 프리미엄 정기결제",
+        customerId: sub.userId,
+      });
 
       if (payment.totalAmount !== PREMIUM_MONTHLY_PRICE) {
         throw new Error(`amount mismatch: got ${payment.totalAmount}`);

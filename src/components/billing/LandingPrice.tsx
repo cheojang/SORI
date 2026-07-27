@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 /**
- * 랜딩페이지 가격 표시 — 플레이스토어(TWA) 안에서는 결제 버튼(TossPaymentButton)과
+ * 랜딩페이지 가격 표시 — 플레이스토어(TWA) 안에서는 결제 버튼(PortOneBillingButton)과
  * 동일한 기준으로 숨긴다. NEXT_PUBLIC_TWA_PAYMENT_ENABLED="true"가 아니면 TWA
  * 안에서는 가격 대신 중립 문구만 보여준다 (구글 인앱결제 우회로 보이지 않게).
  */
