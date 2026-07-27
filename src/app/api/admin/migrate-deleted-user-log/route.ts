@@ -5,9 +5,10 @@ import { isAdmin } from "@/lib/admin-auth";
 
 /**
  * 일회용 마이그레이션 — DeletedUserLog 테이블 생성.
- * 실행 후 이 엔드포인트는 삭제할 것 (CLAUDE.md 규칙).
+ * CREATE TABLE IF NOT EXISTS라 여러 번 실행해도 안전. 실행 후 이 엔드포인트는 삭제할 것 (CLAUDE.md 규칙).
+ * 모바일에서 링크 탭만으로 실행 가능하도록 GET도 지원.
  */
-export async function POST() {
+async function runMigration() {
   const session = await auth();
   if (!isAdmin(session?.user?.email)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -32,4 +33,12 @@ export async function POST() {
     console.error("[migrate-deleted-user-log]", error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
+}
+
+export async function POST() {
+  return runMigration();
+}
+
+export async function GET() {
+  return runMigration();
 }
