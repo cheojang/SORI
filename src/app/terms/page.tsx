@@ -9,6 +9,8 @@ const SERVICE_NAME = "바른발음";
 const COMPANY_NAME = "티엔피"; // 사업자등록증상 상호 — 서비스 브랜드명(바른발음)과 별개
 const CONTACT_EMAIL = "support@sori-app.kr";
 const BIZ_REG_NUMBER = "269-09-03462";
+const CEO_NAME = "유태봉";
+const BIZ_ADDRESS = "경기도 성남시 분당구 미금로 184, 103동 403호(구미동, 까치마을)";
 
 export default function TermsPage() {
   return (
@@ -176,7 +178,9 @@ export default function TermsPage() {
         <section className="bg-[#F5F5F5] rounded-2xl px-5 py-4 text-xs text-[#8B7E74] leading-relaxed">
           <p className="font-bold text-sm text-[#3D3530] mb-1.5">사업자 정보</p>
           <p>상호: {COMPANY_NAME} (서비스명: {SERVICE_NAME})</p>
+          <p>대표자: {CEO_NAME}</p>
           <p>사업자등록번호: {BIZ_REG_NUMBER}</p>
+          <p>사업장 소재지: {BIZ_ADDRESS}</p>
         </section>
 
       </div>
