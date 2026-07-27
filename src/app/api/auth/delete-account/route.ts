@@ -12,6 +12,22 @@ export async function DELETE() {
 
   try {
     await prisma.$transaction(async (tx) => {
+      // 0. 탈퇴 로그 스냅샷 — User는 하드 삭제되므로 관리자 확인용 최소 정보를 먼저 남긴다.
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true, createdAt: true },
+      });
+      if (user) {
+        await tx.deletedUserLog.create({
+          data: {
+            originalId: userId,
+            email: user.email,
+            name: user.name,
+            createdAt: user.createdAt,
+          },
+        });
+      }
+
       // 1. PracticeSession (onDelete Cascade 없음 — WordRecord는 session 삭제 시 cascade)
       await tx.practiceSession.deleteMany({ where: { userId } });
 

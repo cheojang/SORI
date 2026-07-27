@@ -30,6 +30,19 @@ model User {
   reviewBonuses    ReviewBonus[]
 }
 
+// 탈퇴 회원 로그 — User는 탈퇴 시 하드 삭제되므로, 삭제 직전 최소 정보를
+// 스냅샷으로 남겨 관리자가 탈퇴 이력을 확인할 수 있게 한다. (User와 관계 없음 — 탈퇴 후에도 남아야 함)
+model DeletedUserLog {
+  id            String   @id @default(cuid())
+  originalId    String   // 탈퇴 전 User.id
+  email         String
+  name          String?
+  createdAt     DateTime // 탈퇴 전 User.createdAt (원 가입일)
+  deletedAt     DateTime @default(now())
+
+  @@index([deletedAt])
+}
+
 // PushSubscription: Web Push 구독 정보 (브라우저·기기당 1개)
 model PushSubscription {
   id        String   @id @default(cuid())

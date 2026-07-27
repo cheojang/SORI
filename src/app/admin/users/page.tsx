@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import type { ReactNode } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -7,12 +8,16 @@ export const dynamic = "force-dynamic";
  * 관리자 회원 목록/검색 — 사용자 문의 대응용.
  * 접근 제어는 admin/layout.tsx의 isAdmin 게이트가 담당.
  */
+const PAGE_SIZE = 50;
+
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const q = ((await searchParams).q ?? "").trim();
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+  const page = Math.max(1, Number(sp.page ?? "1") || 1);
 
   const where: Prisma.UserWhereInput = q
     ? {
@@ -26,11 +31,12 @@ export default async function AdminUsersPage({
   // eslint-disable-next-line react-hooks/purity -- 서버 컴포넌트는 요청당 1회 렌더 — 체험 만료 비교 기준 시각
   const nowMs = Date.now();
 
-  const [users, total] = await Promise.all([
+  const [users, total, deletedUsers, deletedTotal] = await Promise.all([
     prisma.user.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: 50,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       select: {
         id: true,
         email: true,
@@ -48,7 +54,17 @@ export default async function AdminUsersPage({
       },
     }),
     prisma.user.count({ where }),
+    // 탈퇴 회원 — User는 탈퇴 시 하드 삭제되므로 별도 로그 테이블에서 조회 (검색 없이 최근 100건)
+    q
+      ? []
+      : prisma.deletedUserLog.findMany({
+          orderBy: { deletedAt: "desc" },
+          take: 100,
+        }),
+    q ? 0 : prisma.deletedUserLog.count(),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const fmtDate = (d: Date | null | undefined) =>
     d
@@ -74,7 +90,7 @@ export default async function AdminUsersPage({
         <div>
           <h1 className="text-2xl font-black text-[#3D3530]">👥 회원 관리</h1>
           <p className="text-xs text-[#C4B5A8] mt-0.5">
-            총 {total.toLocaleString()}명{q && ` · "${q}" 검색 결과`} · 최근 가입순 50명 표시
+            총 {total.toLocaleString()}명{q && ` · "${q}" 검색 결과`} · {page}/{totalPages}페이지
           </p>
         </div>
 
@@ -154,6 +170,89 @@ export default async function AdminUsersPage({
           </tbody>
         </table>
       </div>
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 text-sm">
+          <PageLink page={page - 1} q={q} disabled={page <= 1}>← 이전</PageLink>
+          <span className="text-[#8B7E74] font-semibold px-2">{page} / {totalPages}</span>
+          <PageLink page={page + 1} q={q} disabled={page >= totalPages}>다음 →</PageLink>
+        </div>
+      )}
+
+      {/* 탈퇴 회원 로그 — User는 탈퇴 시 하드 삭제되므로, 탈퇴 시점에 남긴 스냅샷만 표시.
+          (이 기능 추가 이전에 탈퇴한 회원은 데이터가 남아있지 않아 조회 불가) */}
+      {!q && (
+        <div className="pt-2">
+          <h2 className="text-base font-black text-[#3D3530] mb-1">🚪 탈퇴 회원</h2>
+          <p className="text-xs text-[#C4B5A8] mb-3">
+            총 {deletedTotal.toLocaleString()}명 · 최근 탈퇴순 최대 100명 표시 · 탈퇴 시 계정 정보는 삭제되며 아래는 탈퇴 시점 스냅샷입니다
+          </p>
+          <div
+            className="rounded-3xl border-2 border-[#F0E8E0] overflow-x-auto"
+            style={{ background: "rgba(255,255,255,0.85)" }}
+          >
+            <table className="w-full text-sm min-w-[480px]">
+              <thead>
+                <tr className="border-b border-[#F0E8E0]">
+                  <th className="text-left py-3 px-4 text-xs font-bold text-[#8B7E74]">이메일</th>
+                  <th className="text-left py-3 px-2 text-xs font-bold text-[#8B7E74]">이름</th>
+                  <th className="text-left py-3 px-2 text-xs font-bold text-[#8B7E74]">가입일</th>
+                  <th className="text-left py-3 px-4 text-xs font-bold text-[#8B7E74]">탈퇴일</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deletedUsers.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-10 text-center text-xs text-[#C4B5A8]">
+                      탈퇴한 회원이 없어요
+                    </td>
+                  </tr>
+                )}
+                {deletedUsers.map((u) => (
+                  <tr key={u.id} className="border-b border-[#F5F0EB] hover:bg-[#FDFAF7]">
+                    <td className="py-2.5 px-4 font-semibold text-[#3D3530]">{u.email}</td>
+                    <td className="py-2.5 px-2 text-[#8B7E74]">{u.name ?? "—"}</td>
+                    <td className="py-2.5 px-2 text-[#8B7E74]">{fmtDate(u.createdAt)}</td>
+                    <td className="py-2.5 px-4 text-[#8B7E74]">{fmtDate(u.deletedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function PageLink({
+  page,
+  q,
+  disabled,
+  children,
+}: {
+  page: number;
+  q: string;
+  disabled: boolean;
+  children: ReactNode;
+}) {
+  if (disabled) {
+    return (
+      <span className="px-3 py-1.5 rounded-xl text-[#C4B5A8] font-semibold cursor-not-allowed">
+        {children}
+      </span>
+    );
+  }
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  params.set("page", String(page));
+  return (
+    <a
+      href={`/admin/users?${params.toString()}`}
+      className="px-3 py-1.5 rounded-xl text-[#3D3530] font-semibold hover:bg-[#FFF5EE] transition-colors"
+    >
+      {children}
+    </a>
   );
 }
