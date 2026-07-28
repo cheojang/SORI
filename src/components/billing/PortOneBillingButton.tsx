@@ -87,7 +87,9 @@ export function PortOneBillingButton({ userId }: Props) {
         // NHN KCP는 빌링키 발급 수단으로 카드만 지원한다
         billingKeyMethod: "CARD",
         issueName: "바른발음 프리미엄 정기결제",
-        // 🔒 서버가 "이 빌링키가 정말 이 사용자의 것인지" 검증하는 근거값
+        // 🔒 서버가 "이 빌링키가 정말 이 사용자의 것인지" 검증하는 근거값.
+        //    customerId는 PG마다 지원 여부가 달라(KCP는 미지원) customData를 주 경로로 쓴다.
+        customData: { userId },
         customer: { customerId: userId },
         // 모바일은 결제창에서 이 주소로 돌아오며 billingKey를 쿼리로 전달한다
         redirectUrl: `${window.location.origin}/subscribe/success`,

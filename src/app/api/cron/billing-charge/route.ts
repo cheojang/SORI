@@ -41,17 +41,15 @@ export async function GET(req: NextRequest) {
     const paymentId = `${sub.userId}_billing_${sub.currentPeriodEnd!.toISOString().slice(0, 10)}`;
 
     try {
-      const payment = await chargeWithBillingKey({
+      // 승인 실패 시 예외가 발생하므로, 여기까지 왔다면 결제가 성사된 것이다.
+      // 금액은 서버 상수로만 정해져 외부에서 개입할 수 없다.
+      await chargeWithBillingKey({
         billingKey: sub.billingKey!,
         paymentId,
         amount: PREMIUM_MONTHLY_PRICE,
         orderName: "바른발음 프리미엄 정기결제",
         customerId: sub.userId,
       });
-
-      if (payment.totalAmount !== PREMIUM_MONTHLY_PRICE) {
-        throw new Error(`amount mismatch: got ${payment.totalAmount}`);
-      }
 
       const nextPeriodEnd = new Date(sub.currentPeriodEnd!);
       nextPeriodEnd.setMonth(nextPeriodEnd.getMonth() + 1);

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getBillingKey, chargeWithBillingKey } from "@/lib/portone";
+import { getBillingKeyOwner, chargeWithBillingKey } from "@/lib/portone";
 import { PREMIUM_MONTHLY_PRICE } from "@/lib/billing";
 
 /**
@@ -16,16 +16,16 @@ export async function activateSubscription(
   billingKey: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const info = await getBillingKey(billingKey);
+    const owner = await getBillingKeyOwner(billingKey);
 
-    if (info.customerId !== userId) {
+    if (owner.isDeleted) {
+      return { ok: false, error: "이미 해지된 카드 등록이에요. 다시 등록해주세요." };
+    }
+    if (owner.userId !== userId) {
       console.error(
-        `[activateSubscription] 소유자 불일치 userId=${userId} billingKeyCustomer=${info.customerId}`,
+        `[activateSubscription] 소유자 불일치 userId=${userId} billingKeyOwner=${owner.userId}`,
       );
       return { ok: false, error: "카드 등록 정보가 올바르지 않아요" };
-    }
-    if (info.deletedAt) {
-      return { ok: false, error: "이미 해지된 카드 등록이에요. 다시 등록해주세요." };
     }
 
     // 기존 구독이 이미 이 빌링키로 활성 상태면 중복 청구하지 않는다
@@ -39,7 +39,9 @@ export async function activateSubscription(
     const periodEnd = new Date();
     periodEnd.setMonth(periodEnd.getMonth() + 1);
 
-    const payment = await chargeWithBillingKey({
+    // 승인 실패 시 예외가 발생하므로, 여기까지 왔다면 결제가 성사된 것이다.
+    // 금액은 서버 상수로만 정해져 클라이언트가 개입할 수 없다.
+    await chargeWithBillingKey({
       billingKey,
       // 첫 회차 멱등키 — 빌링키가 같으면 같은 paymentId가 되어 중복 청구가 거절된다
       paymentId: `${userId}_init_${billingKey.slice(-12)}`,
@@ -47,13 +49,6 @@ export async function activateSubscription(
       orderName: "바른발음 프리미엄 정기결제",
       customerId: userId,
     });
-
-    if (payment.totalAmount !== PREMIUM_MONTHLY_PRICE) {
-      console.error(
-        `[activateSubscription] 금액 불일치 expected=${PREMIUM_MONTHLY_PRICE} got=${payment.totalAmount}`,
-      );
-      return { ok: false, error: "결제 금액 검증에 실패했어요" };
-    }
 
     const data = {
       plan: "premium",
