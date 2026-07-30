@@ -3,6 +3,7 @@ import { BubbleButton } from "@/components/ui/BubbleButton";
 import { BubbleCard } from "@/components/ui/BubbleCard";
 import { SoriMascot, SoriLogo } from "@/components/ui/SoriMascot";
 import { LandingPrice } from "@/components/billing/LandingPrice";
+import { BusinessInfoLines } from "@/components/BusinessInfo";
 
 // 앱 버전 — 배포 전 수동으로 갱신
 const APP_VERSION = "v1.3.0";
@@ -299,9 +300,7 @@ export default function LandingPage() {
         </div>
         {/* 사업자 정보 (전자상거래법 제10조 필수 표시 사항 — PG 가맹점 심사 확인 대상) */}
         <p className="text-[10px] text-[#A89B8E] mt-4 leading-relaxed">
-          상호: 티엔피 (서비스명: 바른발음) · 대표: 유태봉<br />
-          사업자등록번호: 269-09-03462<br />
-          주소: 경기도 성남시 분당구 미금로 184, 103동 403호(구미동, 까치마을)
+          <BusinessInfoLines />
         </p>
 
         <p className="text-xs text-[#786E60] mt-3">© 2026 바른발음</p>

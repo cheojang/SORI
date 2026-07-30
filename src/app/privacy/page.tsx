@@ -4,13 +4,11 @@ export const metadata = {
   title: "개인정보 처리방침 — 바른발음",
 };
 
+import { SERVICE_NAME, COMPANY_NAME, CEO_NAME } from "@/lib/business-info";
+import { BusinessInfoLines } from "@/components/BusinessInfo";
+
 const EFFECTIVE_DATE = "2026년 5월 1일";
-const SERVICE_NAME = "바른발음";
-const COMPANY_NAME = "티엔피"; // 사업자등록증상 상호 — 서비스 브랜드명(바른발음)과 별개
 const CONTACT_EMAIL = "privacy@sori-app.kr";
-const BIZ_REG_NUMBER = "269-09-03462";
-const CEO_NAME = "유태봉";
-const BIZ_ADDRESS = "경기도 성남시 분당구 미금로 184, 103동 403호(구미동, 까치마을)";
 
 export default function PrivacyPage() {
   return (
@@ -271,10 +269,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-bold text-base mb-2">사업자 정보</h2>
           <div className="bg-[#F5F5F5] rounded-xl px-4 py-3 text-xs text-[#8B7E74] leading-relaxed">
-            <p>상호: {COMPANY_NAME} (서비스명: {SERVICE_NAME})</p>
-            <p>대표자: {CEO_NAME}</p>
-            <p>사업자등록번호: {BIZ_REG_NUMBER}</p>
-            <p>사업장 소재지: {BIZ_ADDRESS}</p>
+            <p><BusinessInfoLines /></p>
           </div>
         </section>
 
