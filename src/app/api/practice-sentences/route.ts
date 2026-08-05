@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { decomposeChar } from "@/lib/jamo-analysis";
-import { sanitizePromptInput, withFastConfig, getGenAI } from "@/lib/gemini-client";
+import { sanitizePromptInput, withFastConfig, getGenAI, shouldFallbackToNextModel } from "@/lib/gemini-client";
 import { geminiLimiter } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/usage-limit";
 
@@ -40,11 +40,6 @@ function isValidSentence(s: string, words: string[]): boolean {
   if (!wordHasJosa && !sentenceHasJosa && !wordAtEnd) return false;
 
   return true;
-}
-
-function is503(e: unknown) {
-  const msg = e instanceof Error ? e.message : "";
-  return msg.includes("503") || msg.includes("Service Unavailable");
 }
 
 // 🎯 목표 발음 하이라이팅: 문장에서 목표 발음이 있는 글자 위치 찾기
@@ -199,8 +194,8 @@ ${safeErrorPattern ? `교정 중인 발음 패턴: ${safeErrorPattern}` : ""}
         text = result.text ?? "";
         break;
       } catch (e: unknown) {
-        if (is503(e) && i < MODEL_FALLBACK.length - 1) {
-          console.warn(`[Sentences] ${modelName} 503 → ${MODEL_FALLBACK[i + 1]}로 폴백`);
+        if (shouldFallbackToNextModel(e) && i < MODEL_FALLBACK.length - 1) {
+          console.warn(`[Sentences] ${modelName} 실패 → ${MODEL_FALLBACK[i + 1]}로 폴백`);
           continue;
         }
         throw e;

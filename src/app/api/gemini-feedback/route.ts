@@ -346,6 +346,11 @@ export async function POST(request: NextRequest) {
       if (geminiErr.message?.includes('503') || geminiErr.message?.includes('Service Unavailable')) {
         return NextResponse.json({ error: "AI 서버가 바빠요. 잠시 후 다시 눌러주세요.", isServiceBusy: true }, { status: 503 });
       }
+      // 폴백 3개 모델(flash → flash-lite → pro)이 전부 소진된 경우 마지막 에러가 여기까지 올라온다.
+      // 구글이 예고 없이 모델을 조기 차단하는 사례가 실제로 있었으므로(2026-07-09) 별도 문구로 안내.
+      if (/404|NOT_FOUND|no longer available/i.test(geminiErr.message ?? '')) {
+        return NextResponse.json({ error: "AI 분석 서비스가 일시적으로 이용 불가해요. 잠시 후 다시 눌러주세요.", isServiceBusy: true }, { status: 503 });
+      }
       if (geminiErr.message?.includes('429') || geminiErr.message?.includes('quota')) {
         const isPrepayDepleted = geminiErr.message?.includes('prepayment') || geminiErr.message?.includes('credits are depleted');
         return NextResponse.json({

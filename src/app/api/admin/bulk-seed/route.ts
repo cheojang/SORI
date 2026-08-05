@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/admin-auth";
 import { adminSeedLimiter } from "@/lib/rate-limit";
-import { getGenAI as getSharedGenAI } from "@/lib/gemini-client";
+import { getGenAI as getSharedGenAI, shouldFallbackToNextModel } from "@/lib/gemini-client";
 import { PHONEME_COMBINATIONS, type TemplateCombination } from "@/data/phoneme-combinations";
 
 const MODEL_FALLBACK = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"];
@@ -28,15 +28,14 @@ async function generateWithFallback(genai: ReturnType<typeof getGenAI>, prompt: 
       const raw = await genai.models.generateContent({ model: modelName, contents: prompt });
       return raw.text ?? "";
     } catch (e: any) {
-      const is503 = e?.message?.includes("503") || e?.message?.includes("Service Unavailable");
-      if (is503 && i < MODEL_FALLBACK.length - 1) {
-        console.warn(`[BulkSeed] ${modelName} 503 → 폴백`);
+      if (shouldFallbackToNextModel(e) && i < MODEL_FALLBACK.length - 1) {
+        console.warn(`[BulkSeed] ${modelName} 실패 → 폴백`);
         continue;
       }
       throw e;
     }
   }
-  throw new Error("모든 Gemini 모델이 503 상태입니다");
+  throw new Error("모든 Gemini 모델을 시도했지만 실패했습니다");
 }
 
 function buildPrompt(combo: TemplateCombination): string {

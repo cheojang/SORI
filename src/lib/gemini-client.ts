@@ -103,8 +103,22 @@ export function isGeminiConfigured(): boolean {
   return getGenAI() !== null;
 }
 
-function is503(e: any) {
-  return e?.message?.includes('503') || e?.message?.includes('Service Unavailable');
+/**
+ * 다음 폴백 모델로 넘어가야 하는 에러인지 판단.
+ *
+ * - 503/Service Unavailable: 일시적 과부하
+ * - 404/NOT_FOUND/no longer available: 구글이 예고 없이 모델을 조기 차단하는 경우
+ *   (2026-07-09 gemini-2.5-flash·flash-lite가 공식 폐기일 이전에 404로 막힌 실제 사례 있음 —
+ *   이 경우를 503으로만 좁게 잡으면 폴백 체인이 있어도 첫 모델에서 바로 실패한다)
+ * - 429/quota/rate limit: 해당 모델만 쿼터 소진일 수 있어 다음 모델로 넘겨볼 가치가 있음
+ */
+export function shouldFallbackToNextModel(e: any): boolean {
+  const msg = String(e?.message ?? '');
+  return (
+    /503|Service Unavailable/i.test(msg) ||
+    /404|NOT_FOUND|no longer available/i.test(msg) ||
+    /429|quota|rate limit/i.test(msg)
+  );
 }
 
 /**
@@ -136,8 +150,8 @@ export async function callWithFallback<T>(
       if (i > 0) console.warn(`[${label}] 폴백 모델 사용: ${modelName}`);
       return await fn(modelName);
     } catch (e: any) {
-      if (is503(e) && i < MODEL_FALLBACK.length - 1) {
-        console.warn(`[${label}] ${modelName} 503 → ${MODEL_FALLBACK[i + 1]}로 폴백`);
+      if (shouldFallbackToNextModel(e) && i < MODEL_FALLBACK.length - 1) {
+        console.warn(`[${label}] ${modelName} 실패(${e?.message?.slice(0, 80)}) → ${MODEL_FALLBACK[i + 1]}로 폴백`);
         continue;
       }
       throw e;
