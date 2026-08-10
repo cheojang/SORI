@@ -35,9 +35,15 @@ export async function GET(req: NextRequest) {
       const s = await getSubscriptionStatus(sub.playPurchaseToken!);
 
       if (s.active) {
+        // 사용자가 앱에서 해지한 구독은 만료일까지 구글 쪽에서 여전히 "active"로 보인다.
+        // 여기서 status를 무조건 active로 되돌리면 해지가 취소된 것처럼 보이므로,
+        // 이미 cancelled인 건은 만료일만 갱신하고 상태는 건드리지 않는다.
         await prisma.subscription.update({
           where: { id: sub.id },
-          data: { status: "active", currentPeriodEnd: s.expiryTime },
+          data:
+            sub.status === "cancelled"
+              ? { currentPeriodEnd: s.expiryTime }
+              : { status: "active", currentPeriodEnd: s.expiryTime },
         });
         stillActive++;
       } else {

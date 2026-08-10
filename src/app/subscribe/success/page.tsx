@@ -1,50 +1,23 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { activateSubscription } from "@/lib/subscription-activate";
 import Link from "next/link";
 import { BubbleButton } from "@/components/ui/BubbleButton";
 
 interface Props {
-  // billingKey: 모바일 결제창이 리다이렉트로 넘겨주는 값
-  // done: PC 경로에서 이미 /api/billing/activate로 처리를 끝내고 넘어온 경우
-  searchParams: Promise<{ billingKey?: string; done?: string; code?: string; message?: string }>;
+  // done: 구매 검증(/api/billing/google-play/verify)이 끝난 뒤 클라이언트가 붙여 보내는 표식.
+  // 이 페이지는 결과를 보여주기만 하고 스스로 구독을 활성화하지 않는다 — 활성화는 반드시
+  // 서버 검증 엔드포인트를 거친다(쿼리 파라미터만으로 프리미엄이 켜지면 안 되므로).
+  searchParams: Promise<{ done?: string }>;
 }
 
 async function SuccessContent({ searchParams }: Props) {
-  const { billingKey, done, code, message } = await searchParams;
+  const { done } = await searchParams;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  let errorMsg: string | null = null;
-
-  if (code) {
-    // 결제창이 실패 사유를 붙여 되돌려준 경우
-    errorMsg = message ?? "카드 등록에 실패했어요";
-  } else if (billingKey) {
-    // 모바일 리다이렉트 경로 — 여기서 소유자 검증 + 첫 달 결제 + 구독 활성화
-    const result = await activateSubscription(session.user.id, billingKey);
-    if (!result.ok) errorMsg = result.error;
-  } else if (!done) {
-    // 파라미터 없이 직접 접근
-    redirect("/subscribe");
-  }
-
-  if (errorMsg) {
-    return (
-      <main
-        className="min-h-dvh flex flex-col items-center justify-center px-6 text-center"
-        style={{ backgroundColor: "var(--color-bg-primary)" }}
-      >
-        <div className="text-8xl mb-6">😢</div>
-        <h2 className="text-3xl font-black text-[#3D3530] mb-3">결제 실패</h2>
-        <p className="text-[#8B7E74] mb-8 max-w-xs leading-relaxed">{errorMsg}</p>
-        <Link href="/subscribe">
-          <BubbleButton variant="peach" size="lg">다시 시도하기</BubbleButton>
-        </Link>
-      </main>
-    );
-  }
+  // 파라미터 없이 직접 접근
+  if (!done) redirect("/subscribe");
 
   return (
     <main

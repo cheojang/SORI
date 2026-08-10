@@ -65,15 +65,22 @@ function subHasActivePremium(sub: {
   currentPeriodEnd?: Date | null;
 } | null): boolean {
   if (!sub || sub.plan !== "premium") return false;
-  // 정기결제(빌링) 방식 — 만료일 도래 시 /api/cron/billing-charge가 자동 청구한다.
-  // active: 정상 결제 유지 중. (만료일 없는 active는 개발/수동 부여 계정 → 무기한 유지)
+  // 구독 갱신·결제 재시도는 구글 플레이가 처리하고, /api/cron/google-play-sync가
+  // 그 결과를 매일 우리 DB에 반영한다.
+  // active: 정상 유지 중. (만료일 없는 active는 개발/수동 부여 계정 → 무기한 유지)
   if (sub.status === "active") {
     if (!sub.currentPeriodEnd) return true;
     return sub.currentPeriodEnd.getTime() > Date.now();
   }
-  // past_due: 정기결제 실패 후 재시도 그레이스(최대 3일) — 그 사이엔 프리미엄 유지.
-  // 그레이스 안에 재결제 성공하면 active로 복귀, 초과하면 크론이 free로 강등한다.
-  if (sub.status === "past_due") return true;
+  // past_due: 포트원 정기결제 시절의 레거시 상태(현재는 이 값을 새로 쓰지 않는다).
+  // 예전엔 billing-charge 크론이 3회 실패 후 강등해줬지만 그 크론이 사라졌으므로,
+  // 여기서 무조건 true를 주면 남아 있는 past_due 행이 영구 프리미엄이 된다.
+  // → 만료일 기준 그레이스(3일) 안에서만 허용한다.
+  if (sub.status === "past_due") {
+    if (!sub.currentPeriodEnd) return false;
+    const graceMs = 3 * 24 * 60 * 60 * 1000;
+    return sub.currentPeriodEnd.getTime() + graceMs > Date.now();
+  }
   // cancelled: 사용자가 직접 해지 — 다음 결제는 없지만 이미 낸 기간까지는 유지.
   if (
     sub.status === "cancelled" &&

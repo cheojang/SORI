@@ -22,6 +22,17 @@ export async function activateGooglePlaySubscription(
       return { ok: false, error: "활성화되지 않은 구독이에요. 잠시 후 다시 시도해주세요." };
     }
 
+    // 구매한 상품이 정말 우리 프리미엄 구독인지 확인한다.
+    // 이 검사가 없으면 향후 다른(더 저렴한) 상품을 추가했을 때 그것만 사고도
+    // 프리미엄이 열릴 수 있다. 상품 ID는 클라이언트가 아니라 구글 응답에서 읽는다.
+    const expectedProductId = process.env.NEXT_PUBLIC_GOOGLE_PLAY_PRODUCT_ID || "premium_monthly";
+    if (status.productId !== expectedProductId) {
+      console.error(
+        `[activateGooglePlaySubscription] 상품 불일치 expected=${expectedProductId} got=${status.productId}`,
+      );
+      return { ok: false, error: "구독 상품 정보가 올바르지 않아요." };
+    }
+
     // 이미 다른 계정에 연결된 토큰인지 먼저 확인 (DB unique 제약과 별개로 친절한 에러 메시지용)
     const existing = await prisma.subscription.findUnique({ where: { playPurchaseToken: purchaseToken } });
     if (existing && existing.userId !== userId) {

@@ -107,3 +107,13 @@ export const centerJoinLimiter = new RateLimiter({
   capacity: 10,
   refillPerSecond: 10 / 3600,
 });
+
+/**
+ * 구글 플레이 구매 검증: 사용자당 시간당 20건.
+ * 정상 사용자는 구독 1회 + 앱 진입 시 미승인 구매 재확인 정도라 넉넉한 값이다.
+ * 임의 토큰을 대량으로 던져 구글 API 호출을 유발하는 것을 막는 게 목적.
+ */
+export const playVerifyLimiter = new RateLimiter({
+  capacity: 20,
+  refillPerSecond: 20 / 3600,
+});

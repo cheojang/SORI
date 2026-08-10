@@ -6,17 +6,25 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 
-// dev 로그인 provider — 항상 등록하되 authorize 내부에서 런타임 게이트.
-// (조건부로 배열에서 빼면 ALLOW_DEV_LOGIN이 런타임에 1이어도 빌드 시점 평가/캐싱 때문에
-//  provider 자체가 누락돼 NextAuth가 "Configuration" 에러를 던지는 문제가 있었음)
-// 버튼 노출은 NEXT_PUBLIC_ALLOW_DEV_LOGIN으로 별도 게이트되므로 프로덕션 노출 위험 없음.
-const devProvider = [
+// dev 로그인 provider — 비밀번호 없이 임의 이메일로 로그인시키는 개발 전용 통로.
+//
+// 🚨 프로덕션에서는 환경변수와 무관하게 provider 자체를 등록하지 않는다.
+//    예전엔 ALLOW_DEV_LOGIN 런타임 체크에만 의존했는데, 프로덕션에 이 값이 1로
+//    켜진 채 배포되어 "아무 이메일로 비밀번호 없이 로그인 + 프리미엄 자동 부여"가
+//    가능한 상태였다(관리자 이메일로도 로그인 가능). 환경변수 실수 한 번이 곧
+//    전체 계정 탈취로 이어지므로, 배포 환경 자체를 신뢰 경계로 삼는다.
+const isProductionDeploy =
+  process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+
+const devProvider = isProductionDeploy
+  ? []
+  : [
         Credentials({
           id: "dev",
           name: "개발자 로그인",
           credentials: { email: { label: "Email", type: "text" } },
           async authorize(credentials) {
-            // 런타임 게이트: ALLOW_DEV_LOGIN=1 일 때만 동작
+            // 런타임 게이트: ALLOW_DEV_LOGIN=1 일 때만 동작 (2중 방어)
             if (process.env.ALLOW_DEV_LOGIN !== "1") {
               throw new Error("개발 로그인이 비활성화되어 있어요 (ALLOW_DEV_LOGIN).");
             }

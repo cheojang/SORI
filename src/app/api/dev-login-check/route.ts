@@ -8,10 +8,15 @@ import { prisma } from "@/lib/prisma";
  *
  * NextAuth는 authorize 실패 이유를 클라이언트에 "CredentialsSignin"으로만 노출하므로,
  * 실제 원인(환경변수 미설정 / DB 연결 실패 / dev 유저 부재)을 비밀 노출 없이 boolean으로 확인.
- * NEXT_PUBLIC_ALLOW_DEV_LOGIN=1 인 환경에서만 응답(프로덕션 노출 방지).
+ * 🚨 프로덕션 배포에서는 환경변수와 무관하게 항상 404 — 이 응답이 개발 로그인 활성
+ *    여부를 그대로 알려주므로, 공격자에게 "여기 무인증 통로가 열려 있다"는 신호가 된다.
+ *    (실제로 프로덕션에 NEXT_PUBLIC_ALLOW_DEV_LOGIN·ALLOW_DEV_LOGIN이 켜진 채
+ *     배포되어 이 정보가 공개돼 있었다)
  */
 export async function GET() {
-  if (process.env.NEXT_PUBLIC_ALLOW_DEV_LOGIN !== "1") {
+  const isProductionDeploy =
+    process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  if (isProductionDeploy || process.env.NEXT_PUBLIC_ALLOW_DEV_LOGIN !== "1") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

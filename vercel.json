@@ -10,10 +10,6 @@
       "schedule": "0 1 * * *"
     },
     {
-      "path": "/api/cron/billing-charge",
-      "schedule": "0 0 * * *"
-    },
-    {
       "path": "/api/cron/google-play-sync",
       "schedule": "0 3 * * *"
     }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deleteBillingKey } from "@/lib/portone";
 import { cancelSubscription as cancelPlaySubscription } from "@/lib/google-play";
 
 export async function POST() {
@@ -15,34 +14,36 @@ export async function POST() {
 
   const sub = await prisma.subscription.findUnique({
     where: { userId: session.user.id },
-    select: { status: true, plan: true, currentPeriodEnd: true, billingKey: true, playPurchaseToken: true },
+    select: { status: true, plan: true, currentPeriodEnd: true, playPurchaseToken: true },
   });
 
   if (!sub || sub.plan !== "premium" || sub.status !== "active") {
     return NextResponse.json({ error: "취소할 수 있는 구독이 없어요" }, { status: 400 });
   }
 
-  // 결제 경로(포트원/구글 플레이) 쪽 정기결제도 함께 끊는다. 실패해도 해지 자체는 진행한다
-  // (여기서 막으면 사용자가 해지를 못 하게 되고, 자동청구/갱신은 아래 상태 변경으로 이미 멈춘다).
-  if (sub.billingKey) {
-    try {
-      await deleteBillingKey(sub.billingKey);
-    } catch (e) {
-      console.error("[billing/cancel] 빌링키 삭제 실패:", e);
-    }
-  }
+  // 구글 쪽 자동 갱신을 실제로 멈춘다. 이게 실패하면 사용자는 해지한 줄 알지만
+  // 다음 달에 또 청구되므로, 여기서는 실패를 삼키지 않고 에러를 반환한다.
   if (sub.playPurchaseToken) {
     try {
       await cancelPlaySubscription(sub.playPurchaseToken);
     } catch (e) {
       console.error("[billing/cancel] 플레이 구독 해지 실패:", e);
+      return NextResponse.json(
+        {
+          error:
+            "해지 처리에 실패했어요. 플레이 스토어 → 결제 및 구독 → 정기 결제에서 직접 해지하거나 잠시 후 다시 시도해주세요.",
+        },
+        { status: 502 },
+      );
     }
   }
 
   await prisma.subscription.update({
     where: { userId: session.user.id },
-    // 남은 기간은 유지하되 자동청구/갱신 대상에서 제외되도록 상태만 변경한다
-    data: { status: "cancelled", billingKey: null, playPurchaseToken: null },
+    // 남은 기간은 유지하되 해지 상태로 표시한다.
+    // playPurchaseToken은 지우지 않는다 — 동기화 크론이 이 토큰으로 실제 만료 시점을
+    // 확인해 무료로 강등해야 하기 때문. (지우면 만료를 영영 감지하지 못한다)
+    data: { status: "cancelled" },
   });
 
   return NextResponse.json({

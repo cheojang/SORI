@@ -164,8 +164,8 @@ export default async function SubscribePage({ searchParams }: Props) {
               {/* 정기결제 사전 고지 (전자상거래법·다크패턴 규제) — 결제 버튼 바로 아래,
                   가입 전에 반드시 보이는 위치에 배치 */}
               <p className="text-[11px] text-center text-[#B0A89E] mt-2 leading-relaxed">
-                카드 등록 시 오늘 {PREMIUM_MONTHLY_PRICE_LABEL}이 결제되고, 이후 매달 같은 날 자동 결제돼요.
-                <br />해지는 설정 화면에서 언제든 한 번에 가능해요.
+                구독 시 {PREMIUM_MONTHLY_PRICE_LABEL}이 결제되고, 이후 매달 같은 날 자동 결제돼요.
+                <br />결제와 해지는 구글 플레이 계정을 통해 처리돼요.
               </p>
             </>
           )}
@@ -176,12 +176,11 @@ export default async function SubscribePage({ searchParams }: Props) {
       <div className="rounded-2xl px-5 py-4 mb-4" style={{ backgroundColor: "#FAFAF8", border: "1px solid #F0E8E0" }}>
         <p className="text-xs font-bold text-[#8B7E74] mb-2">환불 및 정기결제 안내</p>
         <ul className="text-[11px] text-[#A89B8E] leading-relaxed space-y-1">
-          <li>· 매달 자동 결제되는 정기구독이며, 등록한 카드로 동일한 날짜에 청구됩니다.</li>
-          <li>· 결제일로부터 7일 이내, 프리미엄 기능(AI 무제한 분석)을 사용하지 않은 경우 전액 환불됩니다.</li>
-          <li>· 프리미엄 기능을 사용한 경우, 이용일수에 해당하는 금액을 제외하고 환불됩니다.</li>
-          <li>· 해지는 설정 → 구독 관리에서 즉시 가능하며, 이미 결제한 기간까지는 계속 이용할 수 있어요.</li>
-          <li>· 해지 후에는 다음 결제가 청구되지 않습니다.</li>
-          <li>· 환불 문의: 설정 → 문의하기 또는 이메일로 접수해 주세요.</li>
+          <li>· 매달 자동 결제되는 정기구독이며, 구글 플레이에 등록된 결제수단으로 청구됩니다.</li>
+          <li>· 결제·환불·해지는 <strong>구글 플레이(Google Play)</strong>를 통해 처리되며, 구글의 환불 정책이 적용됩니다.</li>
+          <li>· 해지는 설정 → 구독 관리, 또는 플레이 스토어 → 결제 및 구독 → 정기 결제에서 가능합니다.</li>
+          <li>· 해지 후에도 이미 결제한 기간까지는 계속 이용할 수 있으며, 다음 결제는 청구되지 않습니다.</li>
+          <li>· 환불 문의: 구글 플레이 고객센터 또는 설정 → 문의하기로 접수해 주세요.</li>
         </ul>
       </div>
 

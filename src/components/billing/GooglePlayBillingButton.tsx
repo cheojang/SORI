@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BubbleButton } from "@/components/ui/BubbleButton";
+import { PLAY_STORE_URL } from "@/lib/app-links";
 
 interface Props {
   userId: string;
@@ -60,12 +61,21 @@ export function GooglePlayBillingButton({ userId }: Props) {
   // 아직 판별 전(초기 렌더 깜빡임 방지)
   if (isTWA === null) return null;
 
-  // 웹 브라우저: 출시 예정 — 구글 플레이 결제는 안드로이드 앱 안에서만 가능하다
+  // 웹 브라우저: 결제 수단을 두지 않고 플레이 스토어로 바로 연결한다.
+  // 구독은 구글 플레이 인앱결제로만 제공되므로 웹에 결제창을 두면 정책 위반이자
+  // 사용자에게도 막다른 길이 된다.
   if (!isTWA) {
     return (
-      <div className="text-center py-4 px-2">
-        <p className="text-sm font-semibold text-[#8B7E74]">앱에서 구독할 수 있어요</p>
-        <p className="text-xs text-[#B0A89E] mt-1">웹 결제는 준비 중이에요. 구글 플레이 스토어 앱을 이용해주세요!</p>
+      <div className="space-y-2">
+        <a href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer" className="block">
+          <BubbleButton variant="peach" size="lg" className="w-full">
+            ▶ 플레이 스토어에서 구독하기
+          </BubbleButton>
+        </a>
+        <p className="text-[11px] text-center text-[#A89B8E] leading-relaxed">
+          구독은 안드로이드 앱에서 진행돼요.
+          <br />앱을 설치한 뒤 같은 계정으로 로그인하면 바로 이용할 수 있어요.
+        </p>
       </div>
     );
   }
