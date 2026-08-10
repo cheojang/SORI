@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BubbleCard } from "@/components/ui/BubbleCard";
 import { PastelBadge } from "@/components/ui/PastelBadge";
-import { PortOneBillingButton } from "@/components/billing/PortOneBillingButton";
+import { GooglePlayBillingButton } from "@/components/billing/GooglePlayBillingButton";
 import { BubbleButton } from "@/components/ui/BubbleButton";
 import { PREMIUM_MONTHLY_PRICE_LABEL } from "@/lib/billing";
 import Link from "next/link";
@@ -160,7 +160,7 @@ export default async function SubscribePage({ searchParams }: Props) {
             </Link>
           ) : (
             <>
-              <PortOneBillingButton userId={userId} />
+              <GooglePlayBillingButton userId={userId} />
               {/* 정기결제 사전 고지 (전자상거래법·다크패턴 규제) — 결제 버튼 바로 아래,
                   가입 전에 반드시 보이는 위치에 배치 */}
               <p className="text-[11px] text-center text-[#B0A89E] mt-2 leading-relaxed">

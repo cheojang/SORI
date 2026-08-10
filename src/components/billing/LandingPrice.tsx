@@ -1,30 +1,12 @@
-"use client";
-
-import { useEffect, useState } from "react";
-
 /**
- * 랜딩페이지 가격 표시 — 플레이스토어(TWA) 안에서는 결제 버튼(PortOneBillingButton)과
- * 동일한 기준으로 숨긴다. NEXT_PUBLIC_TWA_PAYMENT_ENABLED="true"가 아니면 TWA
- * 안에서는 가격 대신 중립 문구만 보여준다 (구글 인앱결제 우회로 보이지 않게).
+ * 랜딩페이지 가격 표시.
+ *
+ * 구글 플레이 인앱결제로 전환하면서 TWA 안에서 가격을 숨길 이유가 없어졌다
+ * (플레이 빌링은 구글이 요구하는 정식 인앱결제 방식이라 우회로 보일 리스크가 없음).
+ * 웹은 실제 결제가 준비 중이지만, 가격 자체를 보여주는 건 문제없다 —
+ * /subscribe로 들어가면 "웹 결제는 준비 중" 안내가 별도로 뜬다.
  */
 export function LandingPrice() {
-  const [hidePrice, setHidePrice] = useState(false);
-
-  useEffect(() => {
-    const isTWA = document.referrer.startsWith("android-app://");
-    const enabled = process.env.NEXT_PUBLIC_TWA_PAYMENT_ENABLED === "true";
-    setHidePrice(isTWA && !enabled);
-  }, []);
-
-  if (hidePrice) {
-    return (
-      <>
-        <p className="text-lg font-black text-[#B45309]">합리적인 가격</p>
-        <p className="text-xs text-[#786E60] mt-1">앱에서 자세히 확인해보세요</p>
-      </>
-    );
-  }
-
   return (
     <>
       <p className="text-3xl font-black text-[#B45309]">4,900원<span className="text-base">/월</span></p>

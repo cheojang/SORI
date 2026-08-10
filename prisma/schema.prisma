@@ -129,6 +129,9 @@ model Subscription {
   plan             String    @default("free")
   // 정기결제용 빌링키(카드 등록 결과). PG 중립 — 포트원을 통해 발급/청구한다.
   billingKey       String?
+  // 구글 플레이 정기결제 구매 토큰. billingKey와 배타적 — 결제 경로가 다르면 이 필드만 채워진다.
+  // @unique로 같은 토큰이 다른 계정에 재사용되는 걸 DB 레벨에서 차단한다(최초 검증 시 소유자 확정).
+  playPurchaseToken String?  @unique
   status           String    @default("inactive") // inactive|active|past_due|cancelled
   currentPeriodEnd DateTime?
   billingFailCount Int       @default(0) // 정기결제 연속 실패 횟수 — 3회(3일) 그레이스 후 자동 해지
