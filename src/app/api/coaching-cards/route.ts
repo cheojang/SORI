@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { LRUCache } from "@/lib/lru-cache";
-import { sanitizePromptInput, withFastConfig, getGenAI } from "@/lib/gemini-client";
+import { sanitizePromptInput, withFastConfig, getGenAI, callWithFallback } from "@/lib/gemini-client";
 import { auth } from "@/lib/auth";
 import { geminiLimiter } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/usage-limit";
@@ -82,11 +82,15 @@ JSON으로만 응답:
   ]
 }`;
 
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: withFastConfig("gemini-2.5-flash", {}),
-    });
+    // 모델을 하드코딩하지 않고 공용 폴백 체인을 쓴다 — 모델이 종료돼도 다음 모델로 넘어가고,
+    // GEMINI_MODELS 환경변수 하나로 전체 앱의 모델을 함께 교체할 수 있다.
+    const result = await callWithFallback("CoachingCards", (modelName) =>
+      ai.models.generateContent({
+        model: modelName,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: withFastConfig(modelName, {}),
+      }),
+    );
     const text = (result.text ?? "").replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(text) as CoachingCardsResult;
     if (parsed?.cards?.length) coachingLRU.set(cacheKey, parsed);

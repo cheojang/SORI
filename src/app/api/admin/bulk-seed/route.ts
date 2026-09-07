@@ -3,10 +3,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/admin-auth";
 import { adminSeedLimiter } from "@/lib/rate-limit";
-import { getGenAI as getSharedGenAI, shouldFallbackToNextModel } from "@/lib/gemini-client";
+import { getGenAI as getSharedGenAI, shouldFallbackToNextModel, MODEL_FALLBACK } from "@/lib/gemini-client";
 import { PHONEME_COMBINATIONS, type TemplateCombination } from "@/data/phoneme-combinations";
 
-const MODEL_FALLBACK = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"];
 // 패턴당 목표 단어쌍 수
 const PAIRS_PER_PATTERN = 100;
 // Vercel 60s 타임아웃 감안 — 한 번 호출당 최대 처리 패턴 수

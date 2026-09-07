@@ -32,10 +32,40 @@ export function sanitizePromptInput(value: unknown, maxLen = 50): string {
     .trim();
 }
 
-// 503 과부하 시 3단계 폴백 (2.0/1.5 계열 모두 폐기됨 — 2.5 계열만 사용)
-// 1순위: 2.5-flash (저렴·빠름) → 2순위: 2.5-flash-lite (초경량) → 3순위: 2.5-pro (고품질)
-// Vertex/AI Studio 모두 동일한 모델 ID를 사용한다.
-const MODEL_FALLBACK = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'];
+/**
+ * 모델 폴백 체인 — 앞에서부터 시도하고, 실패(과부하·모델 종료·쿼터)하면 다음으로 넘어간다.
+ *
+ * ▶ 왜 명시 버전을 쓰나
+ *   우리는 엄격한 JSON(trainingStep1~4 등)을 요구하므로, 모델이 몰래 바뀌면 출력 품질·
+ *   형식이 예고 없이 달라질 수 있다. 구글도 프로덕션에는 명시적 안정 버전을 권장한다.
+ *
+ * ▶ 왜 마지막에 -latest를 두나
+ *   구글은 옛 모델을 실제로 종료시킨다(2026-07-09에 2.5-flash가 공식 종료일보다 3개월
+ *   앞서 404가 된 전례가 있다). 명시 모델이 전부 죽으면 AI 기능 전체가 멈추므로,
+ *   자동 갱신되는 별칭을 최후 안전망으로 둬서 "품질 예측 가능성"과 "서비스 생존"을 모두 잡는다.
+ *
+ * ▶ 교체 방법
+ *   GEMINI_MODELS 환경변수(쉼표 구분)로 덮어쓸 수 있다. 코드 수정·배포 없이 값만 바꾸면 되고,
+ *   TWA 앱은 웹 서버를 그대로 바라보므로 앱 재빌드·스토어 심사도 필요 없다.
+ *   예) GEMINI_MODELS="gemini-3.8-flash,gemini-3.6-flash,gemini-2.5-flash"
+ */
+const DEFAULT_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'];
+
+/** 명시 모델이 전부 실패했을 때만 쓰이는 최후 안전망 (자동으로 최신 버전을 가리킴) */
+const LAST_RESORT_MODEL = 'gemini-flash-latest';
+
+function resolveModelChain(): string[] {
+  const configured = (process.env.GEMINI_MODELS ?? '')
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+
+  const chain = configured.length > 0 ? configured : DEFAULT_MODELS;
+  // 안전망이 이미 포함돼 있으면 중복으로 붙이지 않는다
+  return chain.includes(LAST_RESORT_MODEL) ? chain : [...chain, LAST_RESORT_MODEL];
+}
+
+export const MODEL_FALLBACK = resolveModelChain();
 
 // ── 자격증명 해석 ────────────────────────────────────────────────────────────
 // GCP_SERVICE_ACCOUNT_KEY(JSON 문자열) 또는 GOOGLE_APPLICATION_CREDENTIALS(파일 경로)에서

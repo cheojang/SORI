@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { decomposeChar } from "@/lib/jamo-analysis";
-import { sanitizePromptInput, withFastConfig, getGenAI, shouldFallbackToNextModel } from "@/lib/gemini-client";
+import { sanitizePromptInput, withFastConfig, getGenAI, shouldFallbackToNextModel, MODEL_FALLBACK } from "@/lib/gemini-client";
 import { geminiLimiter } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/usage-limit";
 
 // 문장 생성용 모델 순서: lite(저렴) → pro(고품질 보조)
-const MODEL_FALLBACK = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"];
 
 // ── 문장 무결성 검증 ──────────────────────────────────────────────
 // 아이 교육용 문장은 완전한 형태여야 함:

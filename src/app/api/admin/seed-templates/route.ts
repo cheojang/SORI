@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getGenAI as getSharedGenAI, shouldFallbackToNextModel } from "@/lib/gemini-client";
+import { getGenAI as getSharedGenAI, shouldFallbackToNextModel, MODEL_FALLBACK } from "@/lib/gemini-client";
 import { PHONEME_COMBINATIONS, type TemplateCombination } from "@/data/phoneme-combinations";
 import { isAdmin } from "@/lib/admin-auth";
 import { adminSeedLimiter } from "@/lib/rate-limit";
@@ -9,7 +9,6 @@ import { adminSeedLimiter } from "@/lib/rate-limit";
 // 3단계 폴백 (2.0/1.5 계열 폐기 — 2.5 계열만 사용). 폴백 트리거 조건은
 // gemini-client.ts의 shouldFallbackToNextModel 참고(503 과부하뿐 아니라
 // 구글의 예고 없는 조기 모델 차단 404도 다음 모델로 넘긴다).
-const MODEL_FALLBACK = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"];
 
 function getGenAI() {
   const ai = getSharedGenAI();
