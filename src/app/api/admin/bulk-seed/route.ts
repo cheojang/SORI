@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/admin-auth";
 import { adminSeedLimiter } from "@/lib/rate-limit";
-import { getGenAI as getSharedGenAI, shouldFallbackToNextModel, MODEL_FALLBACK } from "@/lib/gemini-client";
+import { getGenAI as getSharedGenAI, callWithFallback } from "@/lib/gemini-client";
 import { PHONEME_COMBINATIONS, type TemplateCombination } from "@/data/phoneme-combinations";
 
 // 패턴당 목표 단어쌍 수
@@ -20,21 +20,10 @@ function getGenAI() {
 }
 
 async function generateWithFallback(genai: ReturnType<typeof getGenAI>, prompt: string): Promise<string> {
-  for (let i = 0; i < MODEL_FALLBACK.length; i++) {
-    const modelName = MODEL_FALLBACK[i];
-    try {
-      if (i > 0) console.log(`[BulkSeed] 폴백 모델: ${modelName}`);
-      const raw = await genai.models.generateContent({ model: modelName, contents: prompt });
-      return raw.text ?? "";
-    } catch (e: any) {
-      if (shouldFallbackToNextModel(e) && i < MODEL_FALLBACK.length - 1) {
-        console.warn(`[BulkSeed] ${modelName} 실패 → 폴백`);
-        continue;
-      }
-      throw e;
-    }
-  }
-  throw new Error("모든 Gemini 모델을 시도했지만 실패했습니다");
+  return callWithFallback("BulkSeed", async (modelName) => {
+    const raw = await genai.models.generateContent({ model: modelName, contents: prompt });
+    return raw.text ?? "";
+  });
 }
 
 function buildPrompt(combo: TemplateCombination): string {

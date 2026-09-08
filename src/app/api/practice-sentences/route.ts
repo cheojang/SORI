@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { decomposeChar } from "@/lib/jamo-analysis";
-import { sanitizePromptInput, withFastConfig, getGenAI, shouldFallbackToNextModel, MODEL_FALLBACK } from "@/lib/gemini-client";
+import { sanitizePromptInput, withFastConfig, getGenAI, callWithFallback } from "@/lib/gemini-client";
 import { geminiLimiter } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/usage-limit";
 
@@ -179,27 +179,14 @@ ${safeErrorPattern ? `교정 중인 발음 패턴: ${safeErrorPattern}` : ""}
 위 단어들을 각각 사용해서 완전한 문장 6~8개를 만들어라.
 줄바꿈으로만 구분하고, 번호/기호/설명 없이 문장만 출력.`;
 
-    // 모델 폴백 루프: 503이면 다음 모델로
-    let text = "";
-    for (let i = 0; i < MODEL_FALLBACK.length; i++) {
-      const modelName = MODEL_FALLBACK[i];
-      try {
-        if (i > 0) console.log(`[Sentences] 폴백 모델 사용: ${modelName}`);
-        const result = await ai.models.generateContent({
-          model: modelName,
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          config: withFastConfig(modelName, {}),
-        });
-        text = result.text ?? "";
-        break;
-      } catch (e: unknown) {
-        if (shouldFallbackToNextModel(e) && i < MODEL_FALLBACK.length - 1) {
-          console.warn(`[Sentences] ${modelName} 실패 → ${MODEL_FALLBACK[i + 1]}로 폴백`);
-          continue;
-        }
-        throw e;
-      }
-    }
+    const result = await callWithFallback("Sentences", (modelName) =>
+      ai.models.generateContent({
+        model: modelName,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: withFastConfig(modelName, {}),
+      }),
+    );
+    const text = result.text ?? "";
 
     // 1차 파싱 — 텍스트 정리
     const rawSentences: string[] = text

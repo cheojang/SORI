@@ -166,28 +166,99 @@ export function withFastConfig(modelName: string, base: Record<string, unknown>)
   return { ...withTokens, thinkingConfig: { thinkingBudget: 0 } } as any;
 }
 
+// ── 모델 헬스 캐시 (서킷 브레이커) ───────────────────────────────────────────
+//
+// 폴백만 있으면 모델이 죽어도 서비스는 살지만, "매 요청마다" 죽은 모델을 먼저 다시
+// 호출해 실패 왕복을 낭비한다(사용자 체감 지연 + 불필요한 호출). 실패한 모델을 잠시
+// 기억해 두고 건너뛰어, 사람이 손대지 않아도 살아 있는 모델로 자연스럽게 수렴시킨다.
+//
+// ⚠️ 서버리스라 이 기억은 인스턴스별·수명 한정이다(콜드스타트 시 초기화). 전역 공유가
+//    아니어서 완벽하진 않지만, 한 인스턴스가 처리하는 다수 요청에서 이득이 있고
+//    외부 저장소 의존을 추가하지 않는 선에서 가장 실용적인 지점이다.
+//
+// 참고: "사용 가능한 모델 목록"을 API로 조회해 고르는 방식은 쓰지 않는다 —
+//       2026-07-09 사고 때 종료된 모델이 ListModels에는 그대로 노출되면서 호출은
+//       404였다. 목록은 가용성의 근거가 되지 못한다. 실제 호출 결과만 신뢰한다.
+
+type Cooldown = { until: number; reason: string };
+const modelCooldowns = new Map<string, Cooldown>();
+
+/** 실패 성격에 따른 회복 대기 시간 — 종료(404)는 길게, 일시 과부하(503)는 짧게 */
+function cooldownMsFor(errMsg: string): number {
+  if (/404|NOT_FOUND|no longer available/i.test(errMsg)) return 30 * 60 * 1000; // 30분
+  if (/429|quota|rate limit/i.test(errMsg)) return 5 * 60 * 1000; // 5분
+  return 60 * 1000; // 503 등 일시 과부하 — 1분
+}
+
+function markUnhealthy(modelName: string, errMsg: string) {
+  modelCooldowns.set(modelName, {
+    until: Date.now() + cooldownMsFor(errMsg),
+    reason: errMsg.slice(0, 80),
+  });
+}
+
 /**
- * MODEL_FALLBACK 순서로 fn을 시도. 503이면 다음 모델로 폴백, 그 외 에러는 즉시 throw.
- * gemini-ai.ts 등에서 공유 사용.
+ * 지금 시도할 모델 순서. 대기 중인 모델은 건너뛴다.
+ * 단, 전부 대기 상태면 원래 순서를 그대로 반환한다 — 하나도 시도하지 않고 포기하는 것보다
+ * 낫고, 대기 시간이 잘못 잡혔더라도 서비스가 막히지 않게 하기 위함(fail-open).
+ */
+function healthyModelOrder(): string[] {
+  const now = Date.now();
+  const healthy = MODEL_FALLBACK.filter((m) => {
+    const cd = modelCooldowns.get(m);
+    if (!cd) return true;
+    if (cd.until <= now) {
+      modelCooldowns.delete(m); // 대기 만료 — 다시 후보로
+      return true;
+    }
+    return false;
+  });
+  return healthy.length > 0 ? healthy : MODEL_FALLBACK;
+}
+
+/**
+ * 모델 체인을 순서대로 시도한다. 폴백 대상 에러(과부하·모델 종료·쿼터)면 다음 모델로
+ * 넘어가고, 그 외 에러(잘못된 요청 등)는 다음 모델도 똑같이 실패할 것이므로 즉시 throw한다.
  */
 export async function callWithFallback<T>(
   label: string,
   fn: (modelName: string) => Promise<T>
 ): Promise<T> {
-  for (let i = 0; i < MODEL_FALLBACK.length; i++) {
-    const modelName = MODEL_FALLBACK[i];
+  const order = healthyModelOrder();
+  let lastError: unknown;
+
+  for (let i = 0; i < order.length; i++) {
+    const modelName = order[i];
     try {
       if (i > 0) console.warn(`[${label}] 폴백 모델 사용: ${modelName}`);
       return await fn(modelName);
     } catch (e: any) {
-      if (shouldFallbackToNextModel(e) && i < MODEL_FALLBACK.length - 1) {
-        console.warn(`[${label}] ${modelName} 실패(${e?.message?.slice(0, 80)}) → ${MODEL_FALLBACK[i + 1]}로 폴백`);
+      lastError = e;
+      const msg = String(e?.message ?? '');
+      if (!shouldFallbackToNextModel(e)) throw e;
+
+      markUnhealthy(modelName, msg);
+      if (i < order.length - 1) {
+        console.warn(`[${label}] ${modelName} 실패(${msg.slice(0, 80)}) → ${order[i + 1]}로 폴백`);
         continue;
       }
-      throw e;
     }
   }
-  throw new Error(`[${label}] 모든 Gemini 모델이 503 상태입니다`);
+
+  console.error(`[${label}] 모든 Gemini 모델 실패`);
+  throw lastError ?? new Error(`[${label}] 사용 가능한 Gemini 모델이 없습니다`);
+}
+
+/** 진단용 — 현재 대기 중인(건너뛰는) 모델 목록 */
+export function getModelHealthSnapshot(): Array<{ model: string; reason: string; secondsLeft: number }> {
+  const now = Date.now();
+  return [...modelCooldowns.entries()]
+    .filter(([, cd]) => cd.until > now)
+    .map(([model, cd]) => ({
+      model,
+      reason: cd.reason,
+      secondsLeft: Math.ceil((cd.until - now) / 1000),
+    }));
 }
 
 function buildSystemInstruction() {
